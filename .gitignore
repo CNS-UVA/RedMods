@@ -2,3 +2,7 @@
 /samlauth/advanced_settings.json
 /saml.json
 /.env
+/data
+/cogs
+/db-data
+/redis-data

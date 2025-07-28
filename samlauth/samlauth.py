@@ -95,12 +95,21 @@ class SAMLAuth(commands.Cog):
 
     async def _init_saml_auth(self, req):
         """Initialize SAML auth object from aiohttp request."""
-        url_data = urlparse(str(req.url))
+        # Handle reverse proxy headers
+        forwarded_proto = req.headers.get('X-Forwarded-Proto', req.scheme)
+        forwarded_host = req.headers.get('X-Forwarded-Host', req.headers.get('Host', ''))
+        forwarded_port = req.headers.get('X-Forwarded-Port')
+        
+        # Force HTTPS and correct host for SAML
+        is_https = forwarded_proto == 'https'
+        
+        if not forwarded_port:
+            forwarded_port = '443' if is_https else '80'
         
         # Get base URL for dynamic settings
-        base_url = f"{req.scheme}://{req.host}"
-        if url_data.port and url_data.port not in [80, 443]:
-            base_url += f":{url_data.port}"
+        base_url = f"{'https' if is_https else 'http'}://{forwarded_host}"
+        if forwarded_port not in ['80', '443']:
+            base_url += f":{forwarded_port}"
         
         # Get POST data if this is a POST request
         post_data = {}
@@ -108,9 +117,9 @@ class SAMLAuth(commands.Cog):
             post_data = dict(await req.post())
         
         return OneLogin_Saml2_Auth({
-            'https': 'on' if req.scheme == 'https' else 'off',
-            'http_host': req.host,
-            'server_port': url_data.port or (443 if req.scheme == 'https' else 80),
+            'https': 'on' if is_https else 'off',
+            'http_host': forwarded_host,
+            'server_port': int(forwarded_port),
             'script_name': req.path,
             'get_data': dict(req.query),
             'post_data': post_data
