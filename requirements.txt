@@ -1,0 +1,19 @@
+# Red-DiscordBot Cogs Requirements
+
+# Core Discord dependencies
+discord.py>=2.3.0
+
+# Web server for SAML endpoints
+aiohttp>=3.8.0
+
+# SAML 2.0 authentication
+python3-saml>=1.15.0
+
+# Database support
+asyncpg>=0.28.0
+
+# XML processing (dependency of python3-saml)
+lxml>=4.9.0
+
+# Additional dependencies for python3-saml
+xmlsec>=1.3.13

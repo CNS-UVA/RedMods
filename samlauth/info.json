@@ -1,0 +1,12 @@
+{
+    "name": "SAMLAuth",
+    "short": "SAML 2.0 authentication service provider",
+    "description": "Runs a web server that acts as a SAML 2.0 service provider for user authentication and role assignment.",
+    "author": ["CNS @ UVA"],
+    "requirements": ["aiohttp", "python3-saml", "asyncpg"],
+    "tags": ["auth", "saml", "web", "security"],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

@@ -1,0 +1,12 @@
+{
+    "name": "RoleManager",
+    "short": "Advanced role management with dependencies and SAML integration",
+    "description": "Manages role assignments based on SAML authentication data and enforces hierarchical role dependencies.",
+    "author": ["CNS @ UVA"],
+    "requirements": ["asyncpg"],
+    "tags": ["roles", "auth", "moderation", "hierarchy"],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

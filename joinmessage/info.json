@@ -1,0 +1,12 @@
+{
+    "name": "JoinMessage",
+    "short": "Send welcome messages with links when users join",
+    "description": "Automatically sends a welcome message with a configurable webpage link when new users join the server.",
+    "author": ["CNS @ UVA"],
+    "requirements": [],
+    "tags": ["welcome", "join", "moderation"],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
