@@ -63,8 +63,7 @@ class SAMLAuth(commands.Cog):
                 await conn.execute('''
                     CREATE TABLE IF NOT EXISTS saml_users (
                         id SERIAL PRIMARY KEY,
-                        discord_user_id TEXT,
-                        saml_nameid TEXT UNIQUE,
+                        discord_user_id TEXT UNIQUE,
                         attributes JSONB,
                         verification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         reminder_date TIMESTAMP,
@@ -76,9 +75,6 @@ class SAMLAuth(commands.Cog):
                 
                 await conn.execute('''
                     CREATE INDEX IF NOT EXISTS idx_discord_user_id ON saml_users(discord_user_id)
-                ''')
-                await conn.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_saml_nameid ON saml_users(saml_nameid)
                 ''')
                 await conn.execute('''
                     CREATE INDEX IF NOT EXISTS idx_expiration_date ON saml_users(expiration_date)
@@ -152,23 +148,18 @@ class SAMLAuth(commands.Cog):
             return
             
         try:
-            # Extract the OID attribute as the primary identifier
-            oid_list = attributes.get('urn:oid:1.3.6.1.4.1.5923.1.1.1.1', [])
-            primary_id = oid_list[0] if oid_list else ''
-            
             async with self.db_pool.acquire() as conn:
                 await conn.execute('''
                     INSERT INTO saml_users 
-                    (discord_user_id, saml_nameid, attributes, verification_date, reminder_date, expiration_date, updated_at)
-                    VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '365 days', CURRENT_TIMESTAMP + INTERVAL '395 days', CURRENT_TIMESTAMP)
-                    ON CONFLICT (saml_nameid) DO UPDATE SET
-                        discord_user_id = EXCLUDED.discord_user_id,
+                    (discord_user_id, attributes, verification_date, reminder_date, expiration_date, updated_at)
+                    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '365 days', CURRENT_TIMESTAMP + INTERVAL '395 days', CURRENT_TIMESTAMP)
+                    ON CONFLICT (discord_user_id) DO UPDATE SET
                         attributes = EXCLUDED.attributes,
                         verification_date = CURRENT_TIMESTAMP,
                         reminder_date = CURRENT_TIMESTAMP + INTERVAL '365 days',
                         expiration_date = CURRENT_TIMESTAMP + INTERVAL '395 days',
                         updated_at = CURRENT_TIMESTAMP
-                ''', discord_user_id, primary_id, json.dumps(attributes))
+                ''', discord_user_id, json.dumps(attributes))
         except Exception as e:
             log.error(f"Failed to store user data: {e}")
 
@@ -181,13 +172,12 @@ class SAMLAuth(commands.Cog):
         try:
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow(
-                    'SELECT saml_nameid, attributes FROM saml_users WHERE discord_user_id = $1',
+                    'SELECT attributes FROM saml_users WHERE discord_user_id = $1',
                     discord_user_id
                 )
                 
             if result:
                 return {
-                    'saml_nameid': result['saml_nameid'],
                     'attributes': json.loads(result['attributes']) if isinstance(result['attributes'], str) else result['attributes']
                 }
         except Exception as e:
@@ -419,7 +409,7 @@ SAML Service Provider Endpoints:
             
         try:
             async with self.db_pool.acquire() as conn:
-                users = await conn.fetch('SELECT discord_user_id, saml_nameid, attributes FROM saml_users')
+                users = await conn.fetch('SELECT discord_user_id, attributes FROM saml_users')
             
             if not users:
                 await ctx.send("No SAML users found in database.")
@@ -429,7 +419,6 @@ SAML Service Provider Endpoints:
             
             for user in users:
                 discord_id = user['discord_user_id']
-                oid_value = user['saml_nameid']
                 attributes_data = user['attributes']
                 
                 member = ctx.guild.get_member(int(discord_id))
@@ -438,16 +427,18 @@ SAML Service Provider Endpoints:
                 # Parse attributes to show key ones
                 try:
                     attributes = attributes_data if isinstance(attributes_data, dict) else json.loads(attributes_data)
+                    oid_list = attributes.get('urn:oid:1.3.6.1.4.1.5923.1.1.1.1', [])
+                    oid_display = ', '.join(oid_list) if oid_list else 'None'
                     
                     embed.add_field(
                         name=member_name,
-                        value=f"OID: `{oid_value}`\nAttributes: {len(attributes)}",
+                        value=f"OID Values: `{oid_display}`\nTotal Attributes: {len(attributes)}",
                         inline=True
                     )
                 except (json.JSONDecodeError, TypeError):
                     embed.add_field(
                         name=member_name,
-                        value=f"OID: `{oid_value}`\nAttributes: Invalid data",
+                        value=f"Attributes: Invalid data",
                         inline=True
                     )
             
@@ -486,7 +477,7 @@ SAML Service Provider Endpoints:
         try:
             async with self.db_pool.acquire() as conn:
                 reminder_users = await conn.fetch('''
-                    SELECT discord_user_id, saml_nameid, reminder_date, expiration_date
+                    SELECT discord_user_id, attributes, reminder_date, expiration_date
                     FROM saml_users 
                     WHERE reminder_date <= CURRENT_TIMESTAMP AND expiration_date > CURRENT_TIMESTAMP
                     ORDER BY expiration_date
@@ -500,15 +491,23 @@ SAML Service Provider Endpoints:
             
             for user in reminder_users:
                 discord_id = user['discord_user_id']
-                oid_value = user['saml_nameid']
+                attributes_data = user['attributes']
                 expiration_date = user['expiration_date']
                 
                 member = ctx.guild.get_member(int(discord_id))
                 member_name = member.display_name if member else f"Unknown ({discord_id})"
                 
+                # Extract OID values from attributes
+                try:
+                    attributes = attributes_data if isinstance(attributes_data, dict) else json.loads(attributes_data)
+                    oid_list = attributes.get('urn:oid:1.3.6.1.4.1.5923.1.1.1.1', [])
+                    oid_display = ', '.join(oid_list) if oid_list else 'None'
+                except (json.JSONDecodeError, TypeError):
+                    oid_display = 'Invalid data'
+                
                 embed.add_field(
                     name=member_name,
-                    value=f"OID: `{oid_value}`\nExpires: {expiration_date}",
+                    value=f"OID Values: `{oid_display}`\nExpires: {expiration_date}",
                     inline=True
                 )
             

@@ -51,20 +51,19 @@ class RoleManager(commands.Cog):
             self.db_pool = None
 
     async def _get_saml_user_data(self, discord_user_id: str) -> Optional[Dict]:
-        """Retrieve SAML user data from the database."""
+        """Retrieve SAML user data from the database, only if not expired."""
         if not self.db_pool:
             return None
         
         try:
             async with self.db_pool.acquire() as conn:
                 result = await conn.fetchrow(
-                    'SELECT saml_nameid, attributes FROM saml_users WHERE discord_user_id = $1',
+                    'SELECT attributes FROM saml_users WHERE discord_user_id = $1 AND expiration_date > CURRENT_TIMESTAMP',
                     discord_user_id
                 )
                 
             if result:
                 return {
-                    'saml_nameid': result['saml_nameid'],
                     'attributes': json.loads(result['attributes']) if isinstance(result['attributes'], str) else result['attributes']
                 }
         except Exception as e:
