@@ -1,3 +1,4 @@
+import os
 import discord
 from redbot.core import commands, Config
 from redbot.core.bot import Red
@@ -9,11 +10,16 @@ class JoinMessage(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=1234567890)
+        
+        # Get SAML authentication URL from environment
+        saml_base_url = os.getenv('SAML_BASE_URL', 'http://localhost:6969')
+        saml_login_url = f"{saml_base_url}/login"
+        
         default_guild = {
             "enabled": False,
             "channel": None,
-            "message": "Welcome {user}! Please visit {link} to get started.",
-            "link": "https://example.com"
+            "message": "Welcome {user}! Please visit {link} to authenticate and get your roles.",
+            "link": saml_login_url
         }
         self.config.register_guild(**default_guild)
 
@@ -52,8 +58,16 @@ class JoinMessage(commands.Cog):
         await ctx.send("Join message template updated.")
 
     @joinmessage.command()
-    async def link(self, ctx, link: str):
-        """Set the webpage link to include in join messages."""
+    async def link(self, ctx, link: str = None):
+        """Set the webpage link to include in join messages.
+        
+        If no link is provided, it will reset to the SAML authentication URL.
+        """
+        if link is None:
+            # Reset to SAML authentication URL
+            saml_base_url = os.getenv('SAML_BASE_URL', 'http://localhost:6969')
+            link = f"{saml_base_url}/login"
+            
         await self.config.guild(ctx.guild).link.set(link)
         await ctx.send(f"Join message link set to: {link}")
 
